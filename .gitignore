@@ -1,0 +1,33 @@
+# Installer logs
+pip-log.txt
+
+venv/
+*.DS_*
+
+*.pyc
+__pycache__/
+
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+.tox
+htmlcov/
+
+dist/
+build/
+*.egg-info/
+
+# Translations
+*.mo
+
+# settings
+.env
+
+# ide
+.vscode/
+.idea/
+
+# personal
+data/
+readme_parsing.md
