@@ -31,3 +31,5 @@ build/
 # personal
 data/
 readme_parsing.md
+test_private_data.py
+*.json

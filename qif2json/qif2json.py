@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
@@ -16,6 +17,7 @@ SUPPORTED_EXTENSIONS = (MAC_EXTENSION, WIN_EXTENSION, )
 
 # qif file tags
 QIF_CHUNK_SEPARATOR = '\n^\n'
+QIF_LINE_SEPARATOR = '\n'
 OPTION_AUTO_SWITCH = '!Option:AutoSwitch'
 ACCOUNT_TAG = '!Account'
 CLEAR_AUTO_SWITCH = '!Clear:AutoSwitch'
@@ -48,10 +50,6 @@ class QifObject:
         self.description = None
         self.balance = Decimal('0')
         self.transactions = []
-
-
-
-
 
 
 
@@ -171,7 +169,7 @@ def parse_account(account_chunk):
     A account_chunk contains all informations about a Qif account.
     """
 
-    lines = account_chunk.split('\n')
+    lines = account_chunk.split(QIF_LINE_SEPARATOR)
     account = {}
     for line in lines:
         prefix = line[0]
@@ -183,10 +181,43 @@ def parse_account(account_chunk):
         elif prefix == 'D': account["Description"] = data
         elif prefix == 'T': account["Type"] = data
         elif prefix == 'L': account["Credit Limit"] = data
+        elif prefix == 'A': account["Address"] = data
         else:
             raise ValueError(f'Unknown prefix: {prefix}')
     return account
 
+
+def parse_splits(chunk_lines):
+    """
+    Parse splits from a chunk_lines (as list) and return
+    a list of splits.
+
+    :param chunk_lines: list
+
+    Note:
+    -----
+    Assume split infos have 3 lines where a line which starts
+    with 'S' begin split infos and the next 2 lines begin with '$'
+    and 'E' in that order.
+    """
+
+    split = {}
+    splits = []
+
+    for index, line in enumerate(chunk_lines):
+        prefix = line[0]
+        data = line[1:]
+
+        if prefix == 'S': split["Category"] = data
+        elif prefix == 'E': split["Memo"] = data
+        elif prefix == '$':
+            split["Amount"] = data
+            splits.append(split)
+            split = {}
+        else:
+            continue
+
+    return splits
 
 def parse_transaction(transaction_chunk):
     """
@@ -196,25 +227,50 @@ def parse_transaction(transaction_chunk):
 
     A transaction_chunk contains all informations about a Qif transaction.
     """
-    lines = transaction_chunk.split('\n')
+    has_splits = transaction_has_splits(transaction_chunk)
+    lines = transaction_chunk.split(QIF_LINE_SEPARATOR)
     transaction = {}
+
+
     for line in lines:
         prefix = line[0]
         data = line[1:]
 
         if prefix == '!': continue
-        elif prefix == 'D': transaction["Date"] = parse_date(data)
+        elif prefix == 'D': transaction["Date"] = convert_date(data)
         elif prefix == 'P': transaction["Payee"] = data
         elif prefix == 'M': transaction["Memo"] = data
-        elif prefix == 'T': transaction["amount"] = data
+        elif prefix == 'T': transaction["Amount"] = data
         elif prefix == 'C': transaction["Reconciled"] = data
         elif prefix == 'L': transaction["Category"] = data
         elif prefix == 'N': transaction["Transfer"] = data
+        elif prefix == '$' or prefix == 'S' or prefix == 'E':
+            transaction["Splits"] = parse_splits(lines)
         else:
             print(transaction_chunk)
             raise ValueError(f'Unknown prefix: {prefix}')
 
     return transaction
+
+
+def transaction_has_splits(chunk):
+    """Returns True if chunk contain splits."""
+
+    has_dollar_sign = False
+    has_split_symbol = False
+
+    lines = chunk.split(QIF_LINE_SEPARATOR)
+    for line in lines:
+        prefix = line[0]
+        if prefix == '$':
+            has_dollar_sign = True
+        elif prefix == 'S':
+            has_split_symbol = True
+
+        if has_dollar_sign and has_split_symbol:
+            return True
+
+    return False
 
 
 def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
@@ -249,14 +305,16 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
             # starting transaction for a new account
             if processing == 'transactions':
                 # done parsing transactions for this account
-                obj = { account['Name']: account }
-                objects.append(obj)
+                objects.append(account)
+                account = {}
+                transactions = []
 
             processing = 'account_infos'
             account = parse_account(chunk)
         else:
             # transactions
             processing = 'transactions'
+
             transaction = parse_transaction(chunk)
             transactions.append(transaction)
             account["Transactions"] = transactions
@@ -267,5 +325,10 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
 
 
 if __name__ == "__main__":
-    result = parse()
+    data = parse()
+
+    # print(data[0])
+
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
