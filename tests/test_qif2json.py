@@ -1,6 +1,4 @@
 import pytest
-from datetime import datetime
-from decimal import Decimal
 from qif2json import __version__
 
 from qif2json.qif2json import (
@@ -12,8 +10,7 @@ from qif2json.qif2json import (
     find_account_start,
     qif2str,
     qif2list,
-    parse_amount,
-    parse_date,
+    convert_date,
     parse,
 )
 
@@ -80,46 +77,23 @@ def test_find_account_start_win():
 
 # ---------- parse dates -----------------
 
-def test_parse_date_standard_separators():
+def test_convert_date_standard_separators():
     test_date = "11/07/13"
-    result = parse_date(test_date)
-    expected = datetime(2013, 11, 7)
+    result = convert_date(test_date)
+    expected = "2013-11-07"
     assert result == expected
 
 
-def test_parse_date_weird_separators():
+def test_convert_date_weird_separators():
     test_date = "3/ 2' 1"
-    result = parse_date(test_date)
-    expected = datetime(2001, 3, 2)
+    result = convert_date(test_date)
+    expected = "2001-03-02"
     assert result == expected
 
 
-# ---------- parse amount -----------------
+# ---------- parse qif data file-----------
 
-def test_parse_amount_with_commas():
-    amount = '1,123,123.55'
-    result = parse_amount(amount)
-    assert result == Decimal("1123123.55")
-
-
-def test_parse_amount_with_commas_negative():
-    amount = '-1,123,123.55'
-    result = parse_amount(amount)
-    assert result == Decimal("-1123123.55")
-
-
-def test_parse_amount_no_commas():
-    amount = '1123123.55'
-    result = parse_amount(amount)
-    assert result == Decimal("1123123.55")
-
-
-def test_parse_amount_no_commas_negative():
-    amount = '-1123123.55'
-    result = parse_amount(amount)
-    assert result == Decimal("-1123123.55")
-
-
+@pytest.mark.skip(reason="not implemented yet")
 def test_parse_mac():
     result = parse(QIF_FILE_PATH_MAC)
 

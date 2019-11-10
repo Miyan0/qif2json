@@ -1,5 +1,4 @@
 import os
-from decimal import Decimal
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
@@ -67,9 +66,9 @@ def file_supported(qif_file):
 
 
 
-def parse_date_windows(qif_date):
+def convert_date_windows(qif_date):
     """
-    Convert a date with Quicken strange format to a python datetime.
+    Convert a date with Quicken strange format to a YYYY-MM-DD.
 
     Notes:
     qif date format on windows for dates after 1999
@@ -98,13 +97,13 @@ def parse_date_windows(qif_date):
     elif len(year) < 3:
         year = f'20{year}'
 
-    return datetime(int(year), int(month), int(day))
+    return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
 
 
 
-def parse_date(qif_date):
+def convert_date(qif_date):
     """
-    Convert a date with format MM/DD/YY to a python datetime.
+    Convert a date with format MM/DD/YY to YYYY-MM-DD.
     Our test file dates only have 2 digits for years so we have to
     fix a pivot year for 20th or 21st century. We've choosed 2 years from
     the current date's year as a pivot year.
@@ -116,7 +115,7 @@ def parse_date(qif_date):
     """
 
     if "'" in qif_date:
-        return parse_date_windows(qif_date)
+        return convert_date_windows(qif_date)
 
     month, day, year = qif_date.split('/')
     pivot_year = datetime.now().year + 2 - 2000
@@ -125,19 +124,7 @@ def parse_date(qif_date):
     else:
         year = '20' + year
 
-    return datetime(int(year), int(month), int(day))
-
-
-def parse_amount(amount):
-    """
-    Convert an amount from a qif file to Decimal.
-    """
-    if type(amount) != str:
-        raise ValueError(f'Expected a string and was passed a {type(amount)}.')
-
-    # Decimal don't like commas
-    amount = amount.replace(',', '')
-    return Decimal(amount)
+    return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
 
 
 
@@ -192,7 +179,7 @@ def parse_account(account_chunk):
 
         if prefix == '!': continue
         elif prefix == 'N': account["Name"] = data
-        elif prefix == 'B': account["Balance"] = parse_amount(data)
+        elif prefix == 'B': account["Balance"] = data
         elif prefix == 'D': account["Description"] = data
         elif prefix == 'T': account["Type"] = data
         elif prefix == 'L': account["Credit Limit"] = data
@@ -219,7 +206,7 @@ def parse_transaction(transaction_chunk):
         elif prefix == 'D': transaction["Date"] = parse_date(data)
         elif prefix == 'P': transaction["Payee"] = data
         elif prefix == 'M': transaction["Memo"] = data
-        elif prefix == 'T': transaction["amount"] = parse_amount(data)
+        elif prefix == 'T': transaction["amount"] = data
         elif prefix == 'C': transaction["Reconciled"] = data
         elif prefix == 'L': transaction["Category"] = data
         elif prefix == 'N': transaction["Transfer"] = data
