@@ -2,9 +2,31 @@
 
 Python script for parsing QIF files
 
+Require Python > 3.6 but tested on 3.7.5 (Windows)
+
+Should parse MacOS exported `.qmtf` files correctly, but was tested only on Windows. Need to pass the encoding though.
+
+
+## Usage:
+
+``` python
+python qif2json.py C:\myqif.QIF C:\my_export.json
+```
+
+or
+
+``` python
+python qif2json.py C:\myqif.qmtf C:\my_export.json --encoding utf-8
+```
+
+Supported encoding are `utf-8` and `cp1252`. Default is `cp1252`. Make sure you pass the correct one.
+
 Based on [Qif Format](https://en.wikipedia.org/wiki/Quicken_Interchange_Format) and my own observations on **my** data.
 
+---
+
 ## Notes
+
 
 The script has preferences settings for the JSON output:
 

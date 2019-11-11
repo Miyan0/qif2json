@@ -1,6 +1,8 @@
+import argparse
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 #   Preferences
@@ -21,6 +23,8 @@ USE_DEFAULTS_FOR_TRANSACTIONS = True
 # ---------------------------------------------------------------------------
 #   Constants
 # ---------------------------------------------------------------------------
+
+DEFAULT_JSON_PATH = Path('/data.json')
 
 # supported encoding
 MAC_ENCODING = 'utf-8'
@@ -384,10 +388,28 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
 
 
 if __name__ == "__main__":
-    data = parse(QIF_FILE_PATH_WIN, encoding=WIN_ENCODING)
 
-    # print(data[0])
+    """
+    Exemple call:
+    python qif2json.py D:\personal_projects\qif2json\qif2json\data\data_2019.QIF --output D:\my_data.json
+    """
 
-    with open('data_windows.json', 'w', encoding='utf-8') as f:
+    default_encoding = WIN_ENCODING
+
+    parser = argparse.ArgumentParser(description='Enter the path to the qif file.')
+    parser.add_argument('path', type=str, help="path to a qif file")
+    parser.add_argument('output', type=str, help=f"path of json output file")
+    parser.add_argument('--encoding', type=str, help=f"encoding of the qif file, either utf-8 or cp1252 (default to {default_encoding})", default=default_encoding)
+
+    args = parser.parse_args()
+    qif_path = Path(args.path)
+    output = Path(args.output)
+    encoding = args.encoding or default_encoding
+
+    print(f"path: {qif_path}, encoding: {encoding}, output: {output}")
+
+    data = parse(qif_path, encoding=encoding)
+    with open(output, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
 
