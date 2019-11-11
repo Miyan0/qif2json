@@ -75,13 +75,6 @@ CLEAR_AUTO_SWITCH = '!Clear:AutoSwitch'
 CATEGORY_TAG_MAC = '!TYPE:Cat'
 CATEGORY_TAG_WIN = '!Type:Cat'
 
-# test files
-script_dir = os.path.dirname(__file__)
-data_dir = 'data'
-mac_qif_filename = 'quicken_mac_export.qmtf'
-win_qif_filename = 'data_2019.QIF'
-QIF_FILE_PATH_MAC = os.path.join(script_dir, data_dir, mac_qif_filename)
-QIF_FILE_PATH_WIN = os.path.join(script_dir, data_dir, win_qif_filename)
 
 
 
@@ -165,7 +158,7 @@ def convert_date(qif_date):
     return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
 
 
-def qif2str(qif_file, encoding=MAC_ENCODING):
+def qif2str(qif_file, encoding):
     """Reads a qif file and returns a Python str"""
 
     with open(qif_file, mode='r', encoding=encoding) as fp:
@@ -176,7 +169,7 @@ def qif2str(qif_file, encoding=MAC_ENCODING):
     return data
 
 
-def qif2list(qif_file, encoding=MAC_ENCODING):
+def qif2list(qif_file, encoding):
     """Parse a qif file and returns a list of entries"""
 
     qif_str = qif2str(qif_file, encoding=encoding)
@@ -363,7 +356,7 @@ def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
     }
 
 
-def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
+def parse(qif_file, encoding):
     """
     Main parsing function.
     Parse a qif file and returns a python object.
@@ -375,7 +368,6 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
 
     # convert qif file to python list
     entry_list = qif2list(qif_file, encoding=encoding)
-    # entry_list = entry_list[:-1]  # empty line at the end
 
     # is file mac or windows?
     filename, file_extension = os.path.splitext(qif_file)
@@ -418,16 +410,14 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
 
 if __name__ == "__main__":
 
-    """
-    Exemple call:
-    python qif2json.py D:\personal_projects\qif2json\qif2json\data\data_2019.QIF --output D:\my_data.json
-    """
+    # Exemple call:
+    # python qif2json.py D:\data_2019.QIF --output D:\my_data.json
 
     default_encoding = WIN_ENCODING
 
     parser = argparse.ArgumentParser(description='Enter the path to the qif file.')
-    parser.add_argument('path', type=str, help="path to a qif file")
-    parser.add_argument('output', type=str, help=f"path of json output file")
+    parser.add_argument('path', type=str, help="full path to a qif file")
+    parser.add_argument('output', type=str, help=f"full path of json output file")
     parser.add_argument('--encoding', type=str, help=f"encoding of the qif file, either utf-8 or cp1252 (default to {default_encoding})", default=default_encoding)
 
     args = parser.parse_args()
@@ -435,10 +425,8 @@ if __name__ == "__main__":
     output = Path(args.output)
     encoding = args.encoding or default_encoding
 
-    print(f"path: {qif_path}, encoding: {encoding}, output: {output}")
-
+    print(f"Converting qif file: {qif_path} encoding: {encoding}")
     data = parse(qif_path, encoding=encoding)
     with open(output, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-
+    print(f"JSON file generated: {output}")

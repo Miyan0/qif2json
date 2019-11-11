@@ -31,18 +31,27 @@ Project hosted at https://github.com/Miyan0/qif2json
 
 
 import pytest
+from pathlib import Path
+
 from qif2json import __version__
 
 from qif2json.qif2json import (
     USE_DEFAULTS_FOR_ACCOUNTS,
     USE_DEFAULTS_FOR_TRANSACTIONS,
-    QIF_FILE_PATH_MAC,
-    QIF_FILE_PATH_WIN,
     file_supported,
     convert_date,
     init_transaction,
     init_account,
 )
+
+# test files
+data_dir = 'data'
+parent_dir = Path().resolve()
+mac_qif_filename = 'quicken_mac_export.qmtf'
+win_qif_filename = 'data_2019.QIF'
+
+QIF_FILE_PATH_MAC = parent_dir / data_dir / mac_qif_filename
+QIF_FILE_PATH_WIN = parent_dir / data_dir / win_qif_filename
 
 def test_version():
     assert __version__ == '0.1.0'
