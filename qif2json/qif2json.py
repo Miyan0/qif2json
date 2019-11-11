@@ -241,9 +241,20 @@ def parse_transaction(transaction_chunk):
         elif prefix == 'P': transaction["Payee"] = data
         elif prefix == 'M': transaction["Memo"] = data
         elif prefix == 'T': transaction["Amount"] = data
+        elif prefix == 'U': transaction["Amount2"] = data
         elif prefix == 'C': transaction["Reconciled"] = data
         elif prefix == 'L': transaction["Category"] = data
         elif prefix == 'N': transaction["Transfer"] = data
+        elif prefix == 'F': transaction["Reimbursable"] = data
+        elif prefix == 'Y': transaction["Security Name"] = data
+        elif prefix == 'I': transaction["Security Price"] = data
+        elif prefix == 'Q': transaction["Share Qty"] = data
+        elif prefix == 'O': transaction["Commission Cost"] = data
+        elif prefix == 'A':
+            if not transaction.get("Address"):
+                transaction["Address"] = data
+            else:
+                transaction["Address"] += (data + ', ')
         elif prefix == '$' or prefix == 'S' or prefix == 'E':
             transaction["Splits"] = parse_splits(lines)
         else:
@@ -288,7 +299,8 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
     entry_list = entry_list[:-1]  # empty line at the end
     # is file mac or windows?
     filename, file_extension = os.path.splitext(qif_file)
-    file_type = 'Windows' if file_extension == WIN_EXTENSION else 'MacOS'
+    file_type = 'Windows' if file_extension.lower() == WIN_EXTENSION else 'MacOS'
+
     transaction_start_index = find_account_start(entry_list, file_type)
     transaction_list = entry_list[transaction_start_index:]
 
@@ -312,23 +324,23 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
             processing = 'account_infos'
             account = parse_account(chunk)
         else:
-            # transactions
             processing = 'transactions'
-
             transaction = parse_transaction(chunk)
             transactions.append(transaction)
             account["Transactions"] = transactions
         # stop here for now
-        index += 1
         done = index == len(transaction_list) - 1
+        index += 1
+    # save last infos
+    objects.append(account)
     return objects
 
 
 if __name__ == "__main__":
-    data = parse()
+    data = parse(QIF_FILE_PATH_WIN, encoding=WIN_ENCODING)
 
     # print(data[0])
 
-    with open('data.json', 'w', encoding='utf-8') as f:
+    with open('data_windows.json', 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
