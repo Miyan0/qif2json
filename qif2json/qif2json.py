@@ -342,7 +342,8 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
 
     # convert qif file to python list
     entry_list = qif2list(qif_file, encoding=encoding)
-    entry_list = entry_list[:-1]  # empty line at the end
+    # entry_list = entry_list[:-1]  # empty line at the end
+
     # is file mac or windows?
     filename, file_extension = os.path.splitext(qif_file)
     file_type = 'Windows' if file_extension.lower() == WIN_EXTENSION else 'MacOS'
@@ -356,8 +357,13 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
     objects = []
     transactions = []
     processing = None
-    while not done:
-        chunk = transaction_list[index]
+    for chunk in transaction_list:
+        # empty line at the end is our flag
+        if not chunk:
+            account["Transactions"] = transactions
+            account["Transaction Count"] = str(len(transactions))
+            objects.append(account)
+            break
         if ACCOUNT_TAG in chunk:
             # starting transaction for a new account
             if processing == 'transactions':
@@ -374,12 +380,6 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
             processing = 'transactions'
             transaction = parse_transaction(chunk)
             transactions.append(transaction)
-
-        # stop here for now
-        done = index == len(transaction_list) - 1
-        index += 1
-    # save last infos
-    objects.append(account)
     return objects
 
 
