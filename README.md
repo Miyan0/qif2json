@@ -6,6 +6,11 @@ Require Python > 3.6 but tested on 3.7.5 (Windows)
 
 Should parse MacOS exported `.qmtf` files correctly, but was tested only on Windows. Need to pass the encoding though.
 
+## Licence
+
+MIT
+
+Do whatever you want with this code but you can't sue me ;-)
 
 ## Usage:
 
@@ -22,6 +27,10 @@ python qif2json.py C:\myqif.qmtf C:\my_export.json --encoding utf-8
 Supported encoding are `utf-8` and `cp1252`. Default is `cp1252`. Make sure you pass the correct one.
 
 Based on [Qif Format](https://en.wikipedia.org/wiki/Quicken_Interchange_Format) and my own observations on **my** data.
+
+This project uses [Poetry](https://poetry.eustace.io/) but you can use any virtual environment manager, or none.
+
+Anyway, if you only want to convert a qif file to json, you don't need the whole project, just download `qif2json.py` in the `qif2json` folder.
 
 ---
 
