@@ -3,6 +3,22 @@ import json
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
+#   Preferences
+# ---------------------------------------------------------------------------
+
+# Change these to False to prevent always add some fields in the JSON
+
+# if True, JSON will always have
+# "Name, Description, Type, Transaction Count, Transaction"
+# for accounts. See init_account()
+USE_DEFAULTS_FOR_ACCOUNTS = True
+
+# if True, JSON will always have
+# "Date, Payee, Amount, Category"
+# for transactions. See init_transaction()
+USE_DEFAULTS_FOR_TRANSACTIONS = True
+
+# ---------------------------------------------------------------------------
 #   Constants
 # ---------------------------------------------------------------------------
 
@@ -38,19 +54,8 @@ QIF_FILE_PATH_WIN = os.path.join(script_dir, data_dir, win_qif_filename)
 #   Helpers
 # ---------------------------------------------------------------------------
 
-
 class Qif2JsonException(Exception):
     pass
-
-
-class QifObject:
-    def __init__(self):
-        self.account_name = None
-        self.account_type = None
-        self.description = None
-        self.balance = Decimal('0')
-        self.transactions = []
-
 
 
 def file_supported(qif_file):
@@ -170,7 +175,7 @@ def parse_account(account_chunk):
     """
 
     lines = account_chunk.split(QIF_LINE_SEPARATOR)
-    account = {}
+    account = init_account()
     for line in lines:
         prefix = line[0]
         data = line[1:]
@@ -219,6 +224,7 @@ def parse_splits(chunk_lines):
 
     return splits
 
+
 def parse_transaction(transaction_chunk):
     """
     Parse account infos from a chunk.
@@ -229,8 +235,7 @@ def parse_transaction(transaction_chunk):
     """
     has_splits = transaction_has_splits(transaction_chunk)
     lines = transaction_chunk.split(QIF_LINE_SEPARATOR)
-    transaction = {}
-
+    transaction = init_transaction()
 
     for line in lines:
         prefix = line[0]
@@ -284,6 +289,47 @@ def transaction_has_splits(chunk):
     return False
 
 
+def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
+    """
+    Creates and return an empty account dictionary.
+
+    The parse functions uses this instead of simply
+    calling account = {}
+    This freezes keys order.
+    """
+
+    if not use_defaults:
+        return {}
+
+    return {
+        "Name": "",
+        "Description": "",
+        "Type": "",
+        "Transaction Count": 0,
+        "Transactions": []
+    }
+
+
+def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
+    """
+    Creates and return an empty transaction dictionary.
+
+    The parse functions uses this instead of simply
+    calling transaction = {}
+    This freezes keys order.
+    """
+
+    if not use_defaults:
+        return {}
+
+    return {
+        "Date": "",
+        "Payee": "",
+        "Amount": "",
+        "Category": "",
+    }
+
+
 def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
     """
     Main parsing function.
@@ -308,7 +354,6 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
     done = False
     index = 0
     objects = []
-    account = {}
     transactions = []
     processing = None
     while not done:
@@ -317,8 +362,10 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
             # starting transaction for a new account
             if processing == 'transactions':
                 # done parsing transactions for this account
+                account["Transactions"] = transactions
+                account["Transaction Count"] = str(len(transactions))
                 objects.append(account)
-                account = {}
+                account = init_account()
                 transactions = []
 
             processing = 'account_infos'
@@ -327,7 +374,7 @@ def parse(qif_file=QIF_FILE_PATH_MAC, encoding=MAC_ENCODING):
             processing = 'transactions'
             transaction = parse_transaction(chunk)
             transactions.append(transaction)
-            account["Transactions"] = transactions
+
         # stop here for now
         done = index == len(transaction_list) - 1
         index += 1
