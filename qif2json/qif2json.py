@@ -77,10 +77,8 @@ CATEGORY_TAG_MAC = '!TYPE:Cat'
 CATEGORY_TAG_WIN = '!Type:Cat'
 
 
-
-
 # ---------------------------------------------------------------------------
-#   Helpers
+#   Utilities
 # ---------------------------------------------------------------------------
 
 class Qif2JsonException(Exception):
@@ -97,6 +95,8 @@ def file_supported(qif_file):
     return file_extension.lower() in SUPPORTED_EXTENSIONS
 
 
+# date conversion
+# ---------------
 
 def convert_date_windows(qif_date):
     """
@@ -132,7 +132,6 @@ def convert_date_windows(qif_date):
     return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
 
 
-
 def convert_date(qif_date):
     """
     Convert a date with format MM/DD/YY to YYYY-MM-DD.
@@ -157,6 +156,51 @@ def convert_date(qif_date):
         year = '20' + year
 
     return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
+
+
+# ---------------------------------------------------------------------------
+#   Parsing helpers
+# ---------------------------------------------------------------------------
+
+def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
+    """
+    Creates and return an empty account dictionary.
+
+    The parse functions uses this instead of simply
+    calling account = {}
+    This freezes keys order.
+    """
+
+    if not use_defaults:
+        return {}
+
+    return {
+        "Name": "",
+        "Description": "",
+        "Type": "",
+        "Transaction Count": 0,
+        "Transactions": []
+    }
+
+
+def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
+    """
+    Creates and return an empty transaction dictionary.
+
+    The parse functions uses this instead of simply
+    calling transaction = {}
+    This freezes keys order.
+    """
+
+    if not use_defaults:
+        return {}
+
+    return {
+        "Date": "",
+        "Payee": "",
+        "Amount": "",
+        "Category": "",
+    }
 
 
 def qif2str(qif_file, encoding):
@@ -295,46 +339,9 @@ def parse_transaction(transaction_chunk):
     return transaction
 
 
-def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
-    """
-    Creates and return an empty account dictionary.
-
-    The parse functions uses this instead of simply
-    calling account = {}
-    This freezes keys order.
-    """
-
-    if not use_defaults:
-        return {}
-
-    return {
-        "Name": "",
-        "Description": "",
-        "Type": "",
-        "Transaction Count": 0,
-        "Transactions": []
-    }
-
-
-def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
-    """
-    Creates and return an empty transaction dictionary.
-
-    The parse functions uses this instead of simply
-    calling transaction = {}
-    This freezes keys order.
-    """
-
-    if not use_defaults:
-        return {}
-
-    return {
-        "Date": "",
-        "Payee": "",
-        "Amount": "",
-        "Category": "",
-    }
-
+# ---------------------------------------------------------------------------
+#   Parsing begin here
+# ---------------------------------------------------------------------------
 
 def parse(qif_file, encoding):
     """
