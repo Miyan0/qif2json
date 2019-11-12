@@ -1,3 +1,15 @@
+from pathlib import Path
+
+from qif2json import __version__
+
+from qif2json.qif2json import (
+    file_supported,
+    convert_date,
+    init_transaction,
+    init_account,
+)
+
+
 '''
 LICENCE-MIT
 
@@ -30,20 +42,6 @@ Project hosted at https://github.com/Miyan0/qif2json
 '''
 
 
-import pytest
-from pathlib import Path
-
-from qif2json import __version__
-
-from qif2json.qif2json import (
-    USE_DEFAULTS_FOR_ACCOUNTS,
-    USE_DEFAULTS_FOR_TRANSACTIONS,
-    file_supported,
-    convert_date,
-    init_transaction,
-    init_account,
-)
-
 # test files
 data_dir = 'data'
 parent_dir = Path().resolve()
@@ -54,15 +52,15 @@ QIF_FILE_PATH_MAC = parent_dir / data_dir / mac_qif_filename
 QIF_FILE_PATH_WIN = parent_dir / data_dir / win_qif_filename
 
 def test_version():
-    assert __version__ == '0.1.0'
+    assert __version__ == '0.1.1'
 
 
 def test_file_supported():
     result = file_supported(QIF_FILE_PATH_MAC)
-    assert result == True
+    assert result is True
 
     result = file_supported(QIF_FILE_PATH_WIN)
-    assert result == True
+    assert result is True
 
 
 def test_init_account_default_false():
@@ -118,8 +116,3 @@ def test_convert_date_weird_separators():
     result = convert_date(test_date)
     expected = "2001-03-02"
     assert result == expected
-
-
-
-
-

@@ -1,6 +1,6 @@
 # qif2json
 
-Python script for parsing QIF files
+Python script for parsing QIF files.
 
 Require Python > 3.6 but tested on 3.7.5 (Windows)
 
@@ -35,6 +35,10 @@ Anyway, if you only want to convert a qif file to json, you don't need the whole
 ---
 
 ## Notes
+
+Converts only accounts and their respective transactions. Skips account list and categories. Also assumes that the qif file don't contains anything after the last transaction (i.e) it ends with the last transaction of the last account. The script will fail horribly if there's anything other than a new line after the last transaction. Any data **before** the accounts is skipped. This is because, my data is organized this way and I don't plan/have time to mess with this. I suppose that adding a new line could work but didn't test it.
+
+TLDR: anything before the list of transactions don't matter, need a new line after it.
 
 
 The script has preferences settings for the JSON output:

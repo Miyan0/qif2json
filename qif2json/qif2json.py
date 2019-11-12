@@ -1,3 +1,9 @@
+import argparse
+import os
+import json
+from datetime import datetime
+from pathlib import Path
+
 '''
 LICENCE-MIT
 
@@ -29,11 +35,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 Project hosted at https://github.com/Miyan0/qif2json
 '''
 
-import argparse
-import os
-import json
-from datetime import datetime
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 #   Preferences
@@ -259,7 +260,6 @@ def parse_transaction(transaction_chunk):
 
     A transaction_chunk contains all informations about a Qif transaction.
     """
-    has_splits = transaction_has_splits(transaction_chunk)
     lines = transaction_chunk.split(QIF_LINE_SEPARATOR)
     transaction = init_transaction()
 
@@ -293,26 +293,6 @@ def parse_transaction(transaction_chunk):
             raise ValueError(f'Unknown prefix: {prefix}')
 
     return transaction
-
-
-def transaction_has_splits(chunk):
-    """Returns True if chunk contain splits."""
-
-    has_dollar_sign = False
-    has_split_symbol = False
-
-    lines = chunk.split(QIF_LINE_SEPARATOR)
-    for line in lines:
-        prefix = line[0]
-        if prefix == '$':
-            has_dollar_sign = True
-        elif prefix == 'S':
-            has_split_symbol = True
-
-        if has_dollar_sign and has_split_symbol:
-            return True
-
-    return False
 
 
 def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
@@ -377,8 +357,7 @@ def parse(qif_file, encoding):
     transaction_list = entry_list[transaction_start_index:]
 
     # begin parsing
-    done = False
-    index = 0
+    account = None
     objects = []
     transactions = []
     processing = None
@@ -408,6 +387,23 @@ def parse(qif_file, encoding):
     return objects
 
 
+def convert_qif(qif_path, output_path, encoding=WIN_ENCODING):
+    """
+    Converts a qif formatted file using the passed encoding to json.
+
+    :params qif_path: full path to qif file
+    :params output: full path where the json file will end up
+    :params encoding: of the qif file (utf-8 or cp1252) default is cp1252
+    """
+
+    qif_path = Path(qif_path)
+    output = Path(output_path)
+
+    data = parse(qif_path, encoding=encoding)
+    with open(output, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 if __name__ == "__main__":
 
     # Exemple call:
@@ -426,7 +422,5 @@ if __name__ == "__main__":
     encoding = args.encoding or default_encoding
 
     print(f"Converting qif file: {qif_path} encoding: {encoding}")
-    data = parse(qif_path, encoding=encoding)
-    with open(output, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    convert_qif(qif_path, output, encoding=encoding)
     print(f"JSON file generated: {output}")
