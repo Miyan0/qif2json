@@ -59,8 +59,8 @@ USE_DEFAULTS_FOR_TRANSACTIONS = True
 DEFAULT_JSON_PATH = Path('/data.json')
 
 # supported encoding
-MAC_ENCODING = 'utf-8'
-WIN_ENCODING = 'cp1252'
+ENCODING_UTF8 = 'utf-8'
+ENCODING_CP1252 = 'cp1252'
 
 # supported qif extension
 MAC_EXTENSION = '.qmtf'
@@ -76,6 +76,9 @@ CLEAR_AUTO_SWITCH = '!Clear:AutoSwitch'
 CATEGORY_TAG_MAC = '!TYPE:Cat'
 CATEGORY_TAG_WIN = '!Type:Cat'
 
+# platforms
+MACOS = 'MacOS'
+WINDOWS = 'Windows'
 
 # ---------------------------------------------------------------------------
 #   Utilities
@@ -224,7 +227,7 @@ def qif2list(qif_file, encoding):
     return qif_list
 
 
-def find_account_start(qif_list, qif_file_type='MacOS'):
+def find_transactions_start(qif_list, qif_file_type='MacOS'):
     """Return the index where the list of transactions starts."""
 
     flag = CLEAR_AUTO_SWITCH
@@ -234,6 +237,79 @@ def find_account_start(qif_list, qif_file_type='MacOS'):
     for index, entry in enumerate(qif_list):
         if entry.startswith(flag):
             return index
+
+
+def getGroupRanges(qif_list, platform=WINDOWS):
+    """
+    Passing a list of qif file entries, return a dictionary with
+    their 3 keys: categories, account_list, transactions
+    where each value is a tupple (start, end)
+
+    :param qif_list: list of an already parsed qif file
+    :return dictionary
+
+    return value example:
+
+    {
+        "categories": (0, 2245, ),
+        "account_list": (2246, 22254, ),
+        "transactions": (22255, 1231123)
+    }
+
+    Purpose:
+    Helps parsing categories, account list and transactions
+    """
+
+    result = {
+        "categories": None,
+        "account_list": None,
+        "transactions": None
+    }
+    first_category_index = None
+    first_account_index = None
+    first_transaction_index = None
+
+    # remove last element if its empty
+    last_index = len(qif_list) - 1
+    if qif_list[last_index] == '':
+        last_index -= 1
+
+    # assumes windows order is categories, account list, transactions
+    if platform == WINDOWS:
+        for index, entry in enumerate(qif_list):
+            if entry.startswith(CATEGORY_TAG_WIN):
+                first_category_index = index
+            elif entry.startswith(OPTION_AUTO_SWITCH):
+                first_account_index = index
+            elif entry.startswith(CLEAR_AUTO_SWITCH):
+                first_transaction_index = index
+            else:
+                continue
+
+        result["categories"] = (0, first_account_index - 1, )
+        result["account_list"] = (first_account_index, first_transaction_index - 1, )
+        result["transactions"] = (first_transaction_index, last_index, )
+
+    # assumes macos order is account list, categories, transactions
+    else:  # MACOS
+        for index, entry in enumerate(qif_list):
+            if entry.startswith(OPTION_AUTO_SWITCH):
+                first_account_index = index
+            elif entry.startswith(CLEAR_AUTO_SWITCH):
+                first_category_index = index
+            # for macos, the first entry for transaction is '!Account'
+            # which is also used for separating transactions
+            elif entry.startswith(ACCOUNT_TAG):
+                first_transaction_index = index
+                break  # stop at the first !Account tag
+            else:
+                continue
+
+        result["account_list"] = (0, first_category_index - 1, )
+        result["categories"] = (first_category_index, first_transaction_index - 1, )
+        result["transactions"] = (first_transaction_index, last_index, )
+
+    return result
 
 
 def parse_account(account_chunk):
@@ -358,9 +434,9 @@ def parse(qif_file, encoding):
 
     # is file mac or windows?
     filename, file_extension = os.path.splitext(qif_file)
-    file_type = 'Windows' if file_extension.lower() == WIN_EXTENSION else 'MacOS'
+    file_type = WINDOWS if file_extension.lower() == WIN_EXTENSION else MACOS
 
-    transaction_start_index = find_account_start(entry_list, file_type)
+    transaction_start_index = find_transactions_start(entry_list, file_type)
     transaction_list = entry_list[transaction_start_index:]
 
     # begin parsing
@@ -394,7 +470,7 @@ def parse(qif_file, encoding):
     return objects
 
 
-def convert_qif(qif_path, output_path, encoding=WIN_ENCODING):
+def convert_qif(qif_path, output_path, encoding=ENCODING_CP1252):
     """
     Converts a qif formatted file using the passed encoding to json.
 
@@ -416,7 +492,7 @@ if __name__ == "__main__":
     # Exemple call:
     # python qif2json.py D:\data_2019.QIF --output D:\my_data.json
 
-    default_encoding = WIN_ENCODING
+    default_encoding = ENCODING_CP1252
 
     parser = argparse.ArgumentParser(description='Enter the path to the qif file.')
     parser.add_argument('path', type=str, help="full path to a qif file")
