@@ -478,7 +478,7 @@ def parse(qif_file, encoding):
 
 
 # ---------------------------------------------------------------------------
-#   New parsing begin here
+#   Parsing catgegories
 # ---------------------------------------------------------------------------
 
 def parse_category(cat_chunk):
@@ -489,14 +489,17 @@ def parse_category(cat_chunk):
         "tax": None,    # a number if category is tax related,
     }
 
-    # debugging, trying to guess what 'T' prefix is
-    t_prefix_list = []
-
-    chunks = cat_chunk.split(QIF_LINE_SEPARATOR)
-    for chunk in chunks:
-        prefix = chunk[0]
-        data = chunk[1:]
+    lines = cat_chunk.split(QIF_LINE_SEPARATOR)
+    for line in lines:
+        prefix = line[0]
+        data = line[1:]
+        if not data: data = None
         if prefix == '!': continue
+
+        # not documented for categories and is
+        # always empty in both my mac and windows
+        # data files
+        elif prefix == 'T': continue
         elif prefix == 'N': category["name"] = data
         elif prefix == 'D': category["description"] = data
         elif prefix == 'R': category["tax"] = data
@@ -504,46 +507,72 @@ def parse_category(cat_chunk):
         # special cases
         elif prefix == 'E':
             if category['type']:
-                raise ValueError(f'Category is both income and expense: {chunk}')
+                raise ValueError(f'Category is both income and expense: {line}')
             category["type"] = prefix
 
         elif prefix == 'I':
             if category['type']:
-                raise ValueError(f'Category is both income and expense: {chunk}')
+                raise ValueError(f'Category is both income and expense: {line}')
             category["type"] = prefix
 
         elif prefix == 'B':
             if not category.get("budget"):
                 category["budget"] = []
             category["budget"].append(data)
-
-        # guessing prefix 'T' meaning
-        elif prefix == 'T':
-            if data:
-                category["T"] = data
-                t_prefix_list.append({
-                    "chunk": chunk,
-                    "t_content": data
-                })
         else:
             raise ValueError(f'Unknown prefix: {prefix}')
-
-        # for now, 'T' in my windows data is always empty
-        # TODO: check with mac data
-        if len(t_prefix_list) > 0:
-            raise ValueError(f"There's some data for 'T' prefix!")
 
     return category
 
 
-def parse_categories(cat_list, platform=WINDOWS):
+def parse_categories(cat_list):
     """
-    Given a list of categories in qif format, will a list of category object.
+    Given a list of categories in qif format, return a list of
+    python category object.
     """
-    categories = []
-    for cat in cat_list:
-        categories.append(parse_category(cat))
-    return categories
+
+    return [parse_category(c) for c in cat_list]
+
+
+# ---------------------------------------------------------------------------
+#   Parsing account list
+# ---------------------------------------------------------------------------
+
+def new_parse_account(acc_chunk):
+
+    lines = acc_chunk.split(QIF_LINE_SEPARATOR)
+    account = {
+        "name": None,
+        "description": None,
+        "type": None,
+    }
+    for line in lines:
+        prefix = line[0]
+        data = line[1:]
+        if not data: data = None
+
+        if prefix == '!': continue
+        elif prefix == 'N': account["name"] = data
+        elif prefix == 'B': account["balance"] = data
+        elif prefix == 'D': account["description"] = data
+        elif prefix == 'T': account["type"] = data
+        elif prefix == 'L': account["credit_limit"] = data
+        elif prefix == 'A': account["address"] = data
+        else:
+            raise ValueError(f'Unknown prefix: {prefix}')
+    return account
+
+
+def parse_account_list(account_list):
+    """
+    Given a list of accounts in qif format, return a list of
+    python account object.
+    """
+
+    return [new_parse_account(a) for a in account_list]
+
+
+
 
 
 
