@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -227,8 +228,13 @@ def qif2list(qif_file, encoding):
     return qif_list
 
 
+# deprecated, see get_sections_ranges
 def find_transactions_start(qif_list, qif_file_type='MacOS'):
     """Return the index where the list of transactions starts."""
+    # warnings.warn(
+    #     "find_transactions_start, use get_sections_ranges instead",
+    #     DeprecationWarning
+    # )
 
     flag = CLEAR_AUTO_SWITCH
     if qif_file_type == 'MacOS':
@@ -239,10 +245,10 @@ def find_transactions_start(qif_list, qif_file_type='MacOS'):
             return index
 
 
-def getGroupRanges(qif_list, platform=WINDOWS):
+def get_sections_ranges(qif_list, platform=WINDOWS):
     """
     Passing a list of qif file entries, return a dictionary with
-    their 3 keys: categories, account_list, transactions
+    three keys: categories, account_list, transactions
     where each value is a tupple (start, end)
 
     :param qif_list: list of an already parsed qif file
@@ -415,8 +421,9 @@ def parse_transaction(transaction_chunk):
     return transaction
 
 
+
 # ---------------------------------------------------------------------------
-#   Parsing begin here
+#   Parse begin here
 # ---------------------------------------------------------------------------
 
 def parse(qif_file, encoding):
@@ -468,6 +475,76 @@ def parse(qif_file, encoding):
             transaction = parse_transaction(chunk)
             transactions.append(transaction)
     return objects
+
+
+# ---------------------------------------------------------------------------
+#   New parsing begin here
+# ---------------------------------------------------------------------------
+
+def parse_category(cat_chunk):
+    category = {
+        "name": None,
+        "description": None,
+        "type": None,   # 'I' for income, 'E' for expense
+        "tax": None,    # a number if category is tax related,
+    }
+
+    # debugging, trying to guess what 'T' prefix is
+    t_prefix_list = []
+
+    chunks = cat_chunk.split(QIF_LINE_SEPARATOR)
+    for chunk in chunks:
+        prefix = chunk[0]
+        data = chunk[1:]
+        if prefix == '!': continue
+        elif prefix == 'N': category["name"] = data
+        elif prefix == 'D': category["description"] = data
+        elif prefix == 'R': category["tax"] = data
+
+        # special cases
+        elif prefix == 'E':
+            if category['type']:
+                raise ValueError(f'Category is both income and expense: {chunk}')
+            category["type"] = prefix
+
+        elif prefix == 'I':
+            if category['type']:
+                raise ValueError(f'Category is both income and expense: {chunk}')
+            category["type"] = prefix
+
+        elif prefix == 'B':
+            if not category.get("budget"):
+                category["budget"] = []
+            category["budget"].append(data)
+
+        # guessing prefix 'T' meaning
+        elif prefix == 'T':
+            if data:
+                category["T"] = data
+                t_prefix_list.append({
+                    "chunk": chunk,
+                    "t_content": data
+                })
+        else:
+            raise ValueError(f'Unknown prefix: {prefix}')
+
+        # for now, 'T' in my windows data is always empty
+        # TODO: check with mac data
+        if len(t_prefix_list) > 0:
+            raise ValueError(f"There's some data for 'T' prefix!")
+
+    return category
+
+
+def parse_categories(cat_list, platform=WINDOWS):
+    """
+    Given a list of categories in qif format, will a list of category object.
+    """
+    categories = []
+    for cat in cat_list:
+        categories.append(parse_category(cat))
+    return categories
+
 
 
 def convert_qif(qif_path, output_path, encoding=ENCODING_CP1252):
