@@ -1,7 +1,6 @@
 import argparse
 import os
 import json
-import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -36,23 +35,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 Project hosted at https://github.com/Miyan0/qif2json
 '''
 
-
-# ---------------------------------------------------------------------------
-#   Preferences
-# ---------------------------------------------------------------------------
-
-# Change these to False to prevent always add some fields in the JSON
-
-# if True, JSON will always have
-# "Name, Description, Type, Transaction Count, Transaction"
-# for accounts. See init_account()
-USE_DEFAULTS_FOR_ACCOUNTS = True
-
-# if True, JSON will always have
-# "Date, Payee, Amount, Category"
-# for transactions. See init_transaction()
-USE_DEFAULTS_FOR_TRANSACTIONS = True
-
 # ---------------------------------------------------------------------------
 #   Constants
 # ---------------------------------------------------------------------------
@@ -66,7 +48,6 @@ ENCODING_CP1252 = 'cp1252'
 # supported qif extension
 MAC_EXTENSION = '.qmtf'
 WIN_EXTENSION = '.qif'
-SUPPORTED_EXTENSIONS = (MAC_EXTENSION, WIN_EXTENSION, )
 
 # qif file tags
 QIF_CHUNK_SEPARATOR = '\n^\n'
@@ -89,14 +70,22 @@ class Qif2JsonException(Exception):
     pass
 
 
-def file_supported(qif_file):
+def get_platform(qif_file):
     """
     Check that the qif_file is a qif file.
     We accept files with extensions '.qif' and '.qmtf'.
     """
     filename, file_extension = os.path.splitext(qif_file)
+    file_extension = file_extension.lower()
 
-    return file_extension.lower() in SUPPORTED_EXTENSIONS
+    if file_extension == WIN_EXTENSION:
+        return WINDOWS
+
+    if file_extension == MAC_EXTENSION:
+        return MACOS
+
+    raise ValueError('Unsupported file type!')
+
 
 
 # date conversion
@@ -166,45 +155,49 @@ def convert_date(qif_date):
 #   Parsing helpers
 # ---------------------------------------------------------------------------
 
-def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
-    """
-    Creates and return an empty account dictionary.
+# def init_account(use_defaults=USE_DEFAULTS_FOR_ACCOUNTS):
+#     """
+#     Creates and return an empty account dictionary.
 
-    The parse functions uses this instead of simply
-    calling account = {}
-    This freezes keys order.
-    """
+#     The parse functions uses this instead of simply
+#     calling account = {}
+#     This freezes keys order.
+#     """
 
-    if not use_defaults:
-        return {}
+#     if not use_defaults:
+#         return {}
 
-    return {
-        "Name": "",
-        "Description": "",
-        "Type": "",
-        "Transaction Count": 0,
-        "Transactions": []
-    }
+#     return {
+#         "Name": "",
+#         "Description": "",
+#         "Type": "",
+#         "Transaction Count": 0,
+#         "Transactions": []
+#     }
 
 
-def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
-    """
-    Creates and return an empty transaction dictionary.
+# def init_transaction(use_defaults=USE_DEFAULTS_FOR_TRANSACTIONS):
+#     """
+#     Creates and return an empty transaction dictionary.
 
-    The parse functions uses this instead of simply
-    calling transaction = {}
-    This freezes keys order.
-    """
+#     The parse functions uses this instead of simply
+#     calling transaction = {}
+#     This freezes keys order.
+#     """
 
-    if not use_defaults:
-        return {}
+#     if not use_defaults:
+#         return {}
 
-    return {
-        "Date": "",
-        "Payee": "",
-        "Amount": "",
-        "Category": "",
-    }
+#     return {
+#         "Date": "",
+#         "Payee": "",
+#         "Amount": "",
+#         "Category": "",
+#     }
+
+def chunk_to_list(chunk):
+    """Converts a chunk to a list"""
+    return chunk.split(QIF_LINE_SEPARATOR)
 
 
 def qif2str(qif_file, encoding):
@@ -227,22 +220,6 @@ def qif2list(qif_file, encoding):
 
     return qif_list
 
-
-# deprecated, see get_sections_ranges
-def find_transactions_start(qif_list, qif_file_type='MacOS'):
-    """Return the index where the list of transactions starts."""
-    # warnings.warn(
-    #     "find_transactions_start, use get_sections_ranges instead",
-    #     DeprecationWarning
-    # )
-
-    flag = CLEAR_AUTO_SWITCH
-    if qif_file_type == 'MacOS':
-        flag = ACCOUNT_TAG
-
-    for index, entry in enumerate(qif_list):
-        if entry.startswith(flag):
-            return index
 
 
 def get_sections_ranges(qif_list, platform=WINDOWS):
@@ -318,28 +295,29 @@ def get_sections_ranges(qif_list, platform=WINDOWS):
     return result
 
 
-def parse_account(account_chunk):
+def parse_transaction_account(account_chunk):
     """
-    Parse account infos from a chunk.
+    Parse the account information part from a chunk's transaction.
+
 
     :param account_chunk: string separated by new line character
 
     A account_chunk contains all informations about a Qif account.
     """
 
-    lines = account_chunk.split(QIF_LINE_SEPARATOR)
-    account = init_account()
+    lines = chunk_to_list(account_chunk)
+    account = {}
     for line in lines:
         prefix = line[0]
         data = line[1:]
 
         if prefix == '!': continue
-        elif prefix == 'N': account["Name"] = data
-        elif prefix == 'B': account["Balance"] = data
-        elif prefix == 'D': account["Description"] = data
-        elif prefix == 'T': account["Type"] = data
-        elif prefix == 'L': account["Credit Limit"] = data
-        elif prefix == 'A': account["Address"] = data
+        elif prefix == 'N': account["name"] = data
+        elif prefix == 'B': account["balance"] = data
+        elif prefix == 'D': account["description"] = data
+        elif prefix == 'T': account["type"] = data
+        elif prefix == 'L': account["credit_limit"] = data
+        elif prefix == 'A': account["address"] = data
         else:
             raise ValueError(f'Unknown prefix: {prefix}')
     return account
@@ -378,104 +356,10 @@ def parse_splits(chunk_lines):
     return splits
 
 
-def parse_transaction(transaction_chunk):
-    """
-    Parse account infos from a chunk.
-
-    :param transaction_chunk: string separated by new line character
-
-    A transaction_chunk contains all informations about a Qif transaction.
-    """
-    lines = transaction_chunk.split(QIF_LINE_SEPARATOR)
-    transaction = init_transaction()
-
-    for line in lines:
-        prefix = line[0]
-        data = line[1:]
-
-        if prefix == '!': continue
-        elif prefix == 'D': transaction["Date"] = convert_date(data)
-        elif prefix == 'P': transaction["Payee"] = data
-        elif prefix == 'M': transaction["Memo"] = data
-        elif prefix == 'T': transaction["Amount"] = data
-        elif prefix == 'U': transaction["Amount2"] = data
-        elif prefix == 'C': transaction["Reconciled"] = data
-        elif prefix == 'L': transaction["Category"] = data
-        elif prefix == 'N': transaction["Transfer"] = data
-        elif prefix == 'F': transaction["Reimbursable"] = data
-        elif prefix == 'Y': transaction["Security Name"] = data
-        elif prefix == 'I': transaction["Security Price"] = data
-        elif prefix == 'Q': transaction["Share Qty"] = data
-        elif prefix == 'O': transaction["Commission Cost"] = data
-        elif prefix == 'A':
-            if not transaction.get("Address"):
-                transaction["Address"] = data
-            else:
-                transaction["Address"] += (data + ', ')
-        elif prefix == '$' or prefix == 'S' or prefix == 'E':
-            transaction["Splits"] = parse_splits(lines)
-        else:
-            print(transaction_chunk)
-            raise ValueError(f'Unknown prefix: {prefix}')
-
-    return transaction
-
-
 
 # ---------------------------------------------------------------------------
 #   Parse begin here
 # ---------------------------------------------------------------------------
-
-def parse(qif_file, encoding):
-    """
-    Main parsing function.
-    Parse a qif file and returns a python object.
-    Use the result to convert the object to json, csv, etc.
-    """
-
-    if not file_supported(qif_file):
-        raise Qif2JsonException(f'Unsupported file type: {qif_file}')
-
-    # convert qif file to python list
-    entry_list = qif2list(qif_file, encoding=encoding)
-
-    # is file mac or windows?
-    filename, file_extension = os.path.splitext(qif_file)
-    file_type = WINDOWS if file_extension.lower() == WIN_EXTENSION else MACOS
-
-    transaction_start_index = find_transactions_start(entry_list, file_type)
-    transaction_list = entry_list[transaction_start_index:]
-
-    # begin parsing
-    account = None
-    objects = []
-    transactions = []
-    processing = None
-    for chunk in transaction_list:
-        # empty line at the end is our flag
-        if not chunk:
-            account["Transactions"] = transactions
-            account["Transaction Count"] = str(len(transactions))
-            objects.append(account)
-            break
-        if ACCOUNT_TAG in chunk:
-            # starting transaction for a new account
-            if processing == 'transactions':
-                # done parsing transactions for this account
-                account["Transactions"] = transactions
-                account["Transaction Count"] = str(len(transactions))
-                objects.append(account)
-                account = init_account()
-                transactions = []
-
-            processing = 'account_infos'
-            account = parse_account(chunk)
-        else:
-            processing = 'transactions'
-            transaction = parse_transaction(chunk)
-            transactions.append(transaction)
-    return objects
-
 
 # ---------------------------------------------------------------------------
 #   Parsing catgegories
@@ -489,7 +373,7 @@ def parse_category(cat_chunk):
         "tax": None,    # a number if category is tax related,
     }
 
-    lines = cat_chunk.split(QIF_LINE_SEPARATOR)
+    lines = chunk_to_list(cat_chunk)
     for line in lines:
         prefix = line[0]
         data = line[1:]
@@ -540,7 +424,7 @@ def parse_categories(cat_list):
 
 def new_parse_account(acc_chunk):
 
-    lines = acc_chunk.split(QIF_LINE_SEPARATOR)
+    lines = chunk_to_list(acc_chunk)
     account = {
         "name": None,
         "description": None,
@@ -572,8 +456,166 @@ def parse_account_list(account_list):
     return [new_parse_account(a) for a in account_list]
 
 
+# ---------------------------------------------------------------------------
+#   Parsing transactions
+# ---------------------------------------------------------------------------
+
+def parse_transaction_account_info(chunk):
+    """
+    Returns the transaction's account name and information.
+
+    :param chunk: see chunk description
+    :return tuple ((str), dict)
+            (account name, account infos, )
+    """
+
+    account_name = None
+    account_info = {}
+
+    lines = chunk_to_list(chunk)
+    for line in lines:
+        prefix = line[0]
+        data = line[1:]
+        if not data: data = None
+
+        if prefix == '!': continue
+        elif prefix == 'N':
+            account_name = data
+            account_info["name"] = account_name
+        elif prefix == 'T': account_info["type"] = data
+        elif prefix == 'D': account_info["description"] = data
+
+        # mac qmtf file specifics
+        elif prefix == 'B': account_info["balance"] = data
+        elif prefix == 'L': account_info["credit_limit"] = data
+        elif prefix == 'A': account_info["memo"] = data
 
 
+        else:
+            raise ValueError(f'Unknown prefix: {prefix}, chunk: {chunk}')
+
+    return account_name, account_info
+
+
+def parse_account_transaction(transaction_chunk):
+    """
+    Extract a transaction from a chunk.
+
+    :param transaction_chunk: string separated by new line character
+
+    A transaction_chunk contains all informations about a Qif transaction.
+    """
+    lines = chunk_to_list(transaction_chunk)
+    transaction = {}
+
+    for line in lines:
+        prefix = line[0]
+        data = line[1:]
+
+        if prefix == '!': continue
+        elif prefix == 'D': transaction["date"] = convert_date(data)
+        elif prefix == 'P': transaction["payee"] = data
+        elif prefix == 'M': transaction["memo"] = data
+        elif prefix == 'T': transaction["amount"] = data
+        elif prefix == 'U': transaction["amount2"] = data
+        elif prefix == 'C': transaction["reconciled"] = data
+        elif prefix == 'L': transaction["category"] = data
+        elif prefix == 'N': transaction["transfer"] = data
+        elif prefix == 'F': transaction["reimbursable"] = data
+        elif prefix == 'Y': transaction["security_name"] = data
+        elif prefix == 'I': transaction["security_price"] = data
+        elif prefix == 'Q': transaction["share_qty"] = data
+        elif prefix == 'O': transaction["commission_cost"] = data
+        elif prefix == 'A':
+            if not transaction.get("address"):
+                transaction["address"] = data
+            else:
+                transaction["address"] += (data + '\n')
+        elif prefix == '$' or prefix == 'S' or prefix == 'E':
+            transaction["splits"] = parse_splits(lines)
+        else:
+            print(transaction_chunk)
+            raise ValueError(f'Unknown prefix: {prefix}')
+
+    return transaction
+
+
+def parse_transaction_list(list_):
+    """
+    Given the list of all transactions in a QIF file,
+    returns a list of dictionaries grouped by account.
+
+    :param :list_ [(str), ] list of all transactions for all accounts
+    :return :list [(dict), ] See notes below.
+
+    Each element in the list has
+    the following format:
+    {
+        "account_name": str,
+        "account_infos: dict { name, description, type ...}
+        "account_transactions: list of dicts [{date, amount, splits, etc}, ]
+    }
+
+    """
+    result = []
+    account_name = None  # (for convenience, also in account infos)
+    account_infos = None  # each transaction list for a account has this
+    account_group = {
+        "account_name": None,
+        "account_infos": None,
+        "account_transactions": []
+    }
+
+    for t in list_:
+        if ACCOUNT_TAG in t:
+            if account_group["account_transactions"]:
+                result.append(account_group)
+                account_group = account_group = {
+                    "account_name": None,
+                    "account_infos": None,
+                    "account_transactions": []
+                }
+            account_name, account_infos = parse_transaction_account_info(t)
+            account_group["account_name"] = account_name
+            account_group["account_infos"] = account_infos
+            # check if we're processing transactions for a new account
+
+        else:
+            account_transaction = parse_account_transaction(t)
+            account_group["account_transactions"].append(account_transaction)
+    # save last transactions
+    result.append(account_group)
+    return result
+
+
+def parse_qif_file(qif_path, encoding=ENCODING_CP1252, platform=WINDOWS):
+    qif_path = Path(qif_path)
+    list_ = qif2list(qif_path, encoding=encoding)
+    all_sections = get_sections_ranges(list_, platform=platform)
+
+    # categories
+    start = all_sections["categories"][0]
+    end = all_sections["categories"][1]
+    cat_list = list_[start:end + 1]
+    categories = parse_categories(cat_list)
+
+    # account list
+    start = all_sections["account_list"][0]
+    end = all_sections["account_list"][1]
+    account_list = list_[start:end + 1]
+    accounts = parse_account_list(account_list)
+
+    # transactions
+    start = all_sections["transactions"][0]
+    end = all_sections["transactions"][1]
+    transaction_list = list_[start:end + 1]
+    transactions = parse_transaction_list(transaction_list)
+
+    return {
+        "categories": categories,
+        "accounts": accounts,
+        "transactions": transactions,
+    }
 
 
 def convert_qif(qif_path, output_path, encoding=ENCODING_CP1252):
@@ -587,17 +629,22 @@ def convert_qif(qif_path, output_path, encoding=ENCODING_CP1252):
 
     qif_path = Path(qif_path)
     output = Path(output_path)
+    filename, file_extension = os.path.splitext(qif_path)
+    platform = get_platform(qif_path)
 
-    data = parse(qif_path, encoding=encoding)
+    data = parse_qif_file(qif_path, encoding=encoding, platform=platform)
     with open(output, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-if __name__ == "__main__":
+def convert_qif_test():
 
-    # Exemple call:
-    # python qif2json.py D:\data_2019.QIF --output D:\my_data.json
+    qif_path = './data/data_2019.QIF'
+    output_path = './data/data_2019.json'
+    convert_qif(qif_path, output_path, encoding=ENCODING_CP1252)
 
+
+def run_convert_qif():
     default_encoding = ENCODING_CP1252
 
     parser = argparse.ArgumentParser(description='Enter the path to the qif file.')
@@ -613,3 +660,12 @@ if __name__ == "__main__":
     print(f"Converting qif file: {qif_path} encoding: {encoding}")
     convert_qif(qif_path, output, encoding=encoding)
     print(f"JSON file generated: {output}")
+
+
+if __name__ == "__main__":
+
+    # Exemple call:
+    # python qif2json.py D:\data_2019.QIF --output D:\my_data.json
+
+    convert_qif_test()
+    # run_convert_qif()
