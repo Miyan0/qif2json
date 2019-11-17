@@ -3,10 +3,9 @@ from pathlib import Path
 from qif2json import __version__
 
 from qif2json.qif2json import (
-    file_supported,
+    WINDOWS, MACOS,
+    get_platform,
     convert_date,
-    init_transaction,
-    init_account,
 )
 
 
@@ -52,50 +51,15 @@ QIF_FILE_PATH_MAC = parent_dir / data_dir / mac_qif_filename
 QIF_FILE_PATH_WIN = parent_dir / data_dir / win_qif_filename
 
 def test_version():
-    assert __version__ == '0.1.1'
+    assert __version__ == '0.2.1'
 
 
-def test_file_supported():
-    result = file_supported(QIF_FILE_PATH_MAC)
-    assert result is True
+def test_get_platform():
+    result = get_platform(QIF_FILE_PATH_MAC)
+    assert result == MACOS
 
-    result = file_supported(QIF_FILE_PATH_WIN)
-    assert result is True
-
-
-def test_init_account_default_false():
-    result = init_account(use_defaults=False)
-
-    assert result == {}
-
-
-def test_init_account_default_true():
-    result = init_account(use_defaults=True)
-
-    assert result == {
-        "Name": "",
-        "Description": "",
-        "Type": "",
-        "Transaction Count": 0,
-        "Transactions": []
-    }
-
-
-def test_init_transaction_default_false():
-    result = init_transaction(use_defaults=False)
-
-    assert result == {}
-
-
-def test_init_transaction_default_true():
-    result = init_transaction(use_defaults=True)
-
-    assert result == {
-        "Date": "",
-        "Payee": "",
-        "Amount": "",
-        "Category": "",
-    }
+    result = get_platform(QIF_FILE_PATH_WIN)
+    assert result == WINDOWS
 
 
 # -------------------------------------------------------------------------
