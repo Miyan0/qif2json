@@ -520,7 +520,7 @@ def parse_account_transaction(transaction_chunk):
         elif prefix == 'U': transaction["amount2"] = data
         elif prefix == 'C': transaction["reconciled"] = data
         elif prefix == 'L': transaction["category"] = data
-        elif prefix == 'N': transaction["transfer"] = data
+        elif prefix == 'N': transaction["ref_number"] = data
         elif prefix == 'F': transaction["reimbursable"] = data
         elif prefix == 'Y': transaction["security_name"] = data
         elif prefix == 'I': transaction["security_price"] = data
