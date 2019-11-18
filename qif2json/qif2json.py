@@ -344,10 +344,10 @@ def parse_splits(chunk_lines):
         prefix = line[0]
         data = line[1:]
 
-        if prefix == 'S': split["Category"] = data
-        elif prefix == 'E': split["Memo"] = data
+        if prefix == 'S': split["category"] = data
+        elif prefix == 'E': split["memo"] = data
         elif prefix == '$':
-            split["Amount"] = data
+            split["amount"] = data
             splits.append(split)
             split = {}
         else:
